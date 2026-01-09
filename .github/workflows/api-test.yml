@@ -1,0 +1,47 @@
+name: Flask API CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Repo'yu çek
+        uses: actions/checkout@v4
+
+      - name: Python kurulumu
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Bağımlılıkları yükle
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Flask API'yi başlat (background)
+        run: |
+          nohup python app.py > flask.log 2>&1 &
+          sleep 5
+          
+      - name: API'nin hazır olduğunu kontrol et
+        run: |
+          for i in {1..10}; do
+            if curl -f http://127.0.0.1:5000/ > /dev/null 2>&1; then
+              echo "API hazır!"
+              exit 0
+            fi
+            echo "API bekleniyor... ($i/10)"
+            sleep 2
+          done
+          echo "API başlatılamadı!"
+          cat flask.log
+          exit 1
+          
+      - name: Newman kurulumu
+        run: npm install -g newman
+        
+      - name: Postman testlerini çalıştır
+        run: newman run postman_collection.json
